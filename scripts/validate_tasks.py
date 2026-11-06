@@ -4,6 +4,7 @@
 import argparse
 import csv
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -105,6 +106,66 @@ def load_tasks(path):
     return tasks
 
 
+def load_source(path):
+    """Read source CSV rows in order, resolving task-group identity only."""
+    path = Path(path)
+    if path.suffix.lower() != ".csv":
+        raise ValueError("Source must be a .csv file; save Excel input as CSV first")
+    required = {"Task ID", "Task Name", "Variant Instruction"}
+    variants = []
+    group_id = None
+    group_name = None
+    group_names = {}
+    with path.open(encoding="utf-8-sig", newline="") as stream:
+        reader = csv.DictReader(stream, strict=True)
+        headers = reader.fieldnames
+        if (not headers or len(set(headers)) != len(headers)
+                or not required.issubset(headers)):
+            raise ValueError("Source needs unique headers including Task ID, "
+                             "Task Name, Variant Instruction")
+        for row in reader:
+            prefix = f"Source CSV line {reader.line_num}"
+            if None in row or any(value is None for value in row.values()):
+                raise ValueError(f"{prefix}: incorrect column count")
+            if not any(value.strip() for value in row.values()):
+                continue
+            task_id = row["Task ID"].strip()
+            task_name = row["Task Name"].strip()
+            if task_id and task_id != group_id:
+                if not task_name:
+                    raise ValueError(f"{prefix}: a new Task ID requires Task Name")
+                if task_id in group_names and group_names[task_id] != task_name:
+                    raise ValueError(f"{prefix}: Task Name conflicts with an earlier Task ID")
+                group_names[task_id] = task_name
+                group_id, group_name = task_id, task_name
+            elif group_id is None:
+                raise ValueError(f"{prefix}: first task group requires Task ID and Task Name")
+            elif task_name and task_name != group_name:
+                raise ValueError(f"{prefix}: Task Name conflicts with the current Task ID")
+            description = re.sub(r"^variant_\d+\s*:\s*", "",
+                                 row["Variant Instruction"].strip(), flags=re.IGNORECASE)
+            if not description:
+                raise ValueError(f"{prefix}: Variant Instruction must not be empty")
+            variants.append({"task_id": group_id, "task_name": group_name,
+                             "description": description, "source_line": reader.line_num})
+    if not variants:
+        raise ValueError("Source CSV must contain at least one task variant")
+    return variants
+
+
+def validate_source(tasks, variants):
+    """Compare validated tasks to source row order without rewriting content."""
+    errors = []
+    if len(tasks) != len(variants):
+        errors.append(f"Source has {len(variants)} variants but output has {len(tasks)} tasks")
+    for index, (task, variant) in enumerate(zip(tasks, variants), start=1):
+        if task["description"] != variant["description"]:
+            errors.append(f"Task {index}.description: does not match source line "
+                          f"{variant['source_line']} after removing its variant prefix "
+                          "and surrounding whitespace; preserve input order and text")
+    return errors
+
+
 def validate_tasks(tasks, config):
     """Return structural errors and exact duplicate candidates; never delete tasks."""
     if not isinstance(tasks, list) or not tasks:
@@ -156,11 +217,16 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path, help="Task JSON array or template CSV")
     parser.add_argument("--config", type=Path, default=ROOT / "config.example.json")
+    parser.add_argument("--source", type=Path, help="Original task-variant CSV to compare")
     args = parser.parse_args(argv)
     try:
         config = load_config(args.config)
         tasks = load_tasks(args.input)
         errors = validate_tasks(tasks, config)
+        if args.source is not None:
+            variants = load_source(args.source)
+            if not errors:
+                errors.extend(validate_source(tasks, variants))
     except (OSError, UnicodeError, ValueError, csv.Error) as error:
         print(f"Validation failed: {error}", file=sys.stderr)
         return 1

@@ -2,7 +2,7 @@
 
 将表格里的任务变体整理成统一的具身智能任务定义，帮助采集、标注和运营人员减少重复整理工作。
 
-本项目提供 **Skill 指令、标准化提示词、字段配置、示例和本地校验工具**。任务内容由 AI 助手结合输入生成，再经过规则校验和人工审核；当前没有独立的模型调用、Excel 批处理或平台上传程序。
+本项目提供 **Skill 指令、标准化提示词、字段配置、示例、本地校验和 CSV 导出工具**。任务内容由 AI 助手结合输入生成，再经过规则校验和人工审核；当前没有独立的模型调用、Excel 批处理或平台上传程序。
 
 ## 业务场景
 
@@ -17,7 +17,7 @@
 1. 提供 [SKILL.md](SKILL.md)、[提示词](variant-standardizer.txt)、[字段配置](config.example.json) 和任务表格。支持安装 Skill 的助手也可以将整个仓库作为 Skill 文件夹加载。
 2. 参考 [输入示例](input_example.csv)，每行一个变体；`Variant Instruction` 必填。同一任务组的 ID 和名称允许向下继承，新 ID 必须提供名称。
 3. 先检查输入，信息充分时生成 JSON 任务数组；缺少关键条件时先列出待确认项。
-4. 校验输出并人工审核，再按目标平台字段要求整理导入文件。
+4. 校验输出并人工审核，使用导出命令生成 CSV，再确认目标平台的字段映射。
 
 示例请求：
 
@@ -33,13 +33,26 @@
 需要 Python 3.10 或更新版本，仅使用标准库，无需安装第三方包。
 
 ```bash
-python3 scripts/validate_tasks.py output_example.json
-python3 scripts/validate_tasks.py output_example.csv
+python3 scripts/validate_tasks.py output_example.json --source input_example.csv
+python3 scripts/validate_tasks.py output_example.csv --source input_example.csv
 python3 scripts/validate_tasks.py tasks.json --config config.example.json
 python3 -m unittest discover -s tests -v
 ```
 
 成功退出码为 `0`，失败为 `1`。输入路径按当前工作目录解析，默认配置从脚本所在仓库读取。命令只校验文件，不改写输入、不调用模型、不上传数据。
+
+`--source` 可选，用于对照原始变体 CSV：检查分组字段、输出数量、顺序和描述正文。只移除 `variant_01:` 这类前缀及指令首尾空白，正文中的数量、物品、位置等文本必须保留。它不核验目标或 SOP 的语义。Excel 输入需先另存为带表头的 CSV；没有提供原始表格时只执行输出格式校验。
+
+### 从 JSON 导出 CSV
+
+```bash
+python3 scripts/export_tasks.py output_example.json tasks.csv --source input_example.csv
+python3 scripts/validate_tasks.py tasks.csv --source input_example.csv
+```
+
+导出会先校验任务及可选的原始输入，再写入一个**新的** CSV 文件；已有输出文件会被拒绝覆盖。使用 `--config <配置路径>` 可以指定自定义枚举。输出使用带 BOM 的 UTF-8 编码，保留中文、引号、逗号和换行。`Task Goal` 和 `Label` 由程序序列化，布尔类型与 SOP 不丢失。
+
+如果生成的是自己的 `tasks.json`，将第一条命令的输入替换成该文件，`--source` 指向对应的原始变体 CSV。命令仅转换已生成的任务，不会从原始指令自动生成任务内容。
 
 ## 数据约定（v1.1）
 
@@ -86,7 +99,9 @@ CSV 是文本格式，但 `Label` 单元格里的 JSON 仍使用布尔值。引�
 
 工具检查结构、必填字段、枚举、布尔类型、工具标签逻辑、重名和规范化描述的完全重复。完全重复仅忽略大小写和空白差异；工具报错但不会删除任务。
 
-工具无法确认物理可行性、真实用时、语义相似度、输入限制是否完整保留或平台是否接受文件。高相似任务和生成内容仍需人工审核。配置不包含未经实现的相似度阈值，不自动删除近似任务。
+使用 `--source` 时，还能检查任务描述是否按原始行顺序保留、是否漏行，以及新任务组是否缺少名称。空白行可跳过，部分填写但缺少指令的行会报错。相同任务 ID 的名称必须一致。
+
+工具无法确认物理可行性、真实用时、语义相似度、目标或 SOP 是否落实全部输入限制，或平台是否接受文件。高相似任务和生成内容仍需人工审核。配置不包含未经实现的相似度阈值，不自动删除近似任务。
 
 ## 仓库结构
 
@@ -99,8 +114,13 @@ embodied-task-generator/
 ├── input_example.csv
 ├── output_example.json
 ├── output_example.csv
-├── scripts/validate_tasks.py
-├── tests/test_validate_tasks.py
+├── scripts/
+│   ├── validate_tasks.py
+│   └── export_tasks.py
+├── tests/
+│   ├── test_validate_tasks.py
+│   ├── test_source_validation.py
+│   └── test_export_tasks.py
 └── .github/workflows/validate.yml
 ```
 

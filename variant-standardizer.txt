@@ -77,6 +77,9 @@ Task Goal is a JSON-serialized array. Label is a JSON-serialized object with
 exactly tool_use, estimated_duration, dexterity_level, fine_tool_use, project.
 Keep JSON booleans inside Label. Use a CSV writer for quoting embedded JSON.
 SOP carries sop without loss. Confirm different platform schemas before adapting.
+When Python is available, use scripts/export_tasks.py tasks.json tasks.csv instead
+of assembling CSV text manually. Use a new output filename. Add --source source.csv
+when the original variant CSV is available and --config for a custom config.
 
 OUTPUT AND VALIDATION
 If critical information is missing or duplicate candidates need a decision,
@@ -85,5 +88,9 @@ without Markdown fences. Put review notes outside the data file.
 Check fields, config enums, preserved source conditions, observable states and
 outcomes, physical SOPs and valid JSON. When available, run validate_tasks.py
 on saved JSON/CSV, passing --config when using a replacement configuration.
+Add --source source.csv to check source group identity, row count/order and exact
+description preservation (apart from a variant prefix and surrounding whitespace).
+Keep output tasks in source row order. Source comparison does not verify goals
+or SOP semantics; review those separately.
 A passing check does not establish physical feasibility, semantic fidelity or
 platform acceptance. No model-call, XLSX-export or upload program is included.

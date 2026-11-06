@@ -1,0 +1,25 @@
+name: Validate task examples
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.13']
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python scripts/validate_tasks.py output_example.json --source input_example.csv
+      - run: python scripts/validate_tasks.py output_example.csv --source input_example.csv
+      - run: python scripts/export_tasks.py output_example.json "${{ runner.temp }}/exported-tasks.csv" --source input_example.csv
+      - run: python scripts/validate_tasks.py "${{ runner.temp }}/exported-tasks.csv" --source input_example.csv
+      - run: python -m unittest discover -s tests -v

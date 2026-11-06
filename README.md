@@ -1,247 +1,127 @@
-# Embodied Task Generator
+# Embodied Task Generator · 具身智能任务标准化 Skill
 
-A prompt-driven workflow for transforming spreadsheet-based task variants into standardized embodied AI task schemas and platform-ready import files.
+将表格里的任务变体整理成统一的具身智能任务定义，帮助采集、标注和运营人员减少重复整理工作。
 
----
+本项目提供 **Skill 指令、标准化提示词、字段配置、示例、本地校验和 CSV 导出工具**。任务内容由 AI 助手结合输入生成，再经过规则校验和人工审核；当前没有独立的模型调用、Excel 批处理或平台上传程序。
 
-## Overview
+## 业务场景
 
-Embodied AI data production often requires large volumes of task variants to be standardized before annotation, collection, or platform import.
+同一类任务可能有不同数量、物品和位置的变体。本 Skill 将每条变体整理为任务描述、初始状态、可验证的目标、泛化方向、操作能力、环境、标签和 SOP。
 
-This project demonstrates a lightweight workflow that converts raw task variants from spreadsheets into structured task definitions with normalized environments, standardized labels, and import-ready outputs.
+例如“从储物箱取出两盒感冒药，放到 A 货架左侧”，输出需要保留“两盒”“感冒药”“A 货架左侧”等条件。初始状态描述执行前的世界，目标描述完成后的状态，SOP 描述执行过程。缺少关键条件时先确认，不将猜测填成事实。
 
-The workflow is designed to improve consistency, reduce manual effort, and support scalable embodied AI data generation.
+## 快速使用
 
----
+### 在 AI 助手中使用
 
-## Key Capabilities
+1. 提供 [SKILL.md](SKILL.md)、[提示词](variant-standardizer.txt)、[字段配置](config.example.json) 和任务表格。支持安装 Skill 的助手也可以将整个仓库作为 Skill 文件夹加载。
+2. 参考 [输入示例](input_example.csv)，每行一个变体；`Variant Instruction` 必填。同一任务组的 ID 和名称允许向下继承，新 ID 必须提供名称。
+3. 先检查输入，信息充分时生成 JSON 任务数组；缺少关键条件时先列出待确认项。
+4. 校验输出并人工审核，使用导出命令生成 CSV，再确认目标平台的字段映射。
 
-- Variant task parsing
-- Task schema standardization
-- Environment normalization
-- Label JSON generation
-- Duplicate detection support
-- Platform-ready template generation
-- Batch processing for spreadsheet inputs
-
----
-
-## Workflow
+示例请求：
 
 ```text
-Spreadsheet Task Variants
-            │
-            ▼
-Variant Parsing
-            │
-            ▼
-Task Standardization Prompt
-            │
-            ▼
-Structured Task Schema
-            │
-            ▼
-Environment Mapping
-            │
-            ▼
-Label Generation
-            │
-            ▼
-Duplicate Check
-            │
-            ▼
-Platform Import Template
-            │
-            ▼
-Upload-ready Excel / JSON
+请按 SKILL.md、variant-standardizer.txt 和 config.example.json 整理 input_example.csv。
+每条变体独立生成一个任务，保留数量、物品和位置条件。
+信息充分时，输出符合字段约定的 JSON 数组并保存为 tasks.json。
+信息不足或有重复候选时，先列出问题让我确认。
 ```
 
----
+### 在本地校验
 
-## Architecture
+需要 Python 3.10 或更新版本，仅使用标准库，无需安装第三方包。
 
-```text
-┌─────────────────────┐
-│ Raw Task Variants   │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│ Variant Parser      │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│ Standardization     │
-│ Prompt              │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│ Schema Generator    │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│ Environment Mapper  │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│ Label Generator     │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│ Duplicate Checker   │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│ Platform Exporter   │
-└─────────────────────┘
+```bash
+python3 scripts/validate_tasks.py output_example.json --source input_example.csv
+python3 scripts/validate_tasks.py output_example.csv --source input_example.csv
+python3 scripts/validate_tasks.py tasks.json --config config.example.json
+python3 -m unittest discover -s tests -v
 ```
 
----
+成功退出码为 `0`，失败为 `1`。输入路径按当前工作目录解析，默认配置从脚本所在仓库读取。命令只校验文件，不改写输入、不调用模型、不上传数据。
 
-## Example Input
+`--source` 可选，用于对照原始变体 CSV：检查分组字段、输出数量、顺序和描述正文。只移除 `variant_01:` 这类前缀及指令首尾空白，正文中的数量、物品、位置等文本必须保留。它不核验目标或 SOP 的语义。Excel 输入需先另存为带表头的 CSV；没有提供原始表格时只执行输出格式校验。
 
-| Task Name | Variant |
-|------------|------------|
-| Restock Medicine | Move two medicine boxes from storage to shelf A |
-| Restock Medicine | Move three medicine boxes from storage to shelf B |
+### 从 JSON 导出 CSV
 
-Example spreadsheet:
-
-```csv
-Task ID,Task Name,Variant
-t1,Restock Medicine,Move two medicine boxes from storage to shelf A
-t1,Restock Medicine,Move three medicine boxes from storage to shelf B
+```bash
+python3 scripts/export_tasks.py output_example.json tasks.csv --source input_example.csv
+python3 scripts/validate_tasks.py tasks.csv --source input_example.csv
 ```
 
----
+导出会先校验任务及可选的原始输入，再写入一个**新的** CSV 文件；已有输出文件会被拒绝覆盖。使用 `--config <配置路径>` 可以指定自定义枚举。输出使用带 BOM 的 UTF-8 编码，保留中文、引号、逗号和换行。`Task Goal` 和 `Label` 由程序序列化，布尔类型与 SOP 不丢失。
 
-## Example Output
+如果生成的是自己的 `tasks.json`，将第一条命令的输入替换成该文件，`--source` 指向对应的原始变体 CSV。命令仅转换已生成的任务，不会从原始指令自动生成任务内容。
 
-```json
-{
-  "任务名称": "补充药品-v01",
-  "描述": "从储药箱中取出2盒药品摆放至指定货架",
-  "环境": "healthcare",
-  "任务类型": "Gripper,Dexterous Hand",
-  "标签": {
-    "工具使用": false,
-    "标准用时": "≤4min",
-    "灵巧度等级": "非灵巧"
-  }
-}
-```
+## 数据约定（v1.1）
 
----
+[config.example.json](config.example.json) 统一维护环境、任务类型、灵巧度和用时档位的允许值。提示词、示例和工具使用同一份配置。
 
-## Repository Structure
+JSON 顶层为非空数组，每个任务包含以下字段，不接受额外字段：
+
+| 字段 | 类型与含义 |
+| --- | --- |
+| `task_name` | 非空字符串，原任务名称加变体编号，如 `Restock Medicine-v01` |
+| `description` | 非空字符串，原始变体指令；可移除 `variant_01:` 这类元数据前缀 |
+| `initial_state` | 非空字符串，开始执行前可观察的状态 |
+| `task_goal` | 非空字符串数组，可验证的完成条件，保留输入的数量、物品和位置等限制 |
+| `generalization_axes` | 非空字符串，分号分隔的泛化维度 |
+| `task_type` | 配置中的操作能力枚举 |
+| `dexterity_level` | 配置中的灵巧度枚举 |
+| `environment` | 配置中的环境枚举；无法确定时先复核，不默认归到零售 |
+| `estimated_duration` | 配置中的用时档位，属于估计值，需人工复核 |
+| `tool_use` / `fine_tool_use` | JSON 布尔值 `true` 或 `false`，不可写成字符串 |
+| `sop` | 非空字符串，有顺序的可执行物理动作 |
+| `project` | 非空字符串，使用提供的项目标记，否则使用配置默认值 |
+
+完整示例见 [output_example.json](output_example.json)。
+
+### CSV 导入映射
+
+| CSV 列 | JSON 来源 |
+| --- | --- |
+| `Task Name` | `task_name` |
+| `Description` | `description` |
+| `Task Goal` | `task_goal` 序列化为 JSON 数组 |
+| `Initial State` | `initial_state` |
+| `Generalization Axes` | `generalization_axes` |
+| `Task Type` | `task_type` |
+| `Environment` | `environment` |
+| `Label` | JSON 对象：`tool_use`、`estimated_duration`、`dexterity_level`、`fine_tool_use`、`project` |
+| `SOP` | `sop` |
+
+CSV 是文本格式，但 `Label` 单元格里的 JSON 仍使用布尔值。引用和转义方式见 [output_example.csv](output_example.csv)。本项目使用示范导入格式，实际平台可能要求不同的列名、标签和枚举，需确认映射后使用。
+
+相较原示例，v1.1 将 `"false"` 修正为 `false`，将 `≤4min` 统一到 `2–5min` 档位，增加 `SOP` 列以保留操作说明。原先只接受 8 列的平台需要单独确认 SOP 的接收方式。
+
+## 校验范围与人工审核
+
+工具检查结构、必填字段、枚举、布尔类型、工具标签逻辑、重名和规范化描述的完全重复。完全重复仅忽略大小写和空白差异；工具报错但不会删除任务。
+
+使用 `--source` 时，还能检查任务描述是否按原始行顺序保留、是否漏行，以及新任务组是否缺少名称。空白行可跳过，部分填写但缺少指令的行会报错。相同任务 ID 的名称必须一致。
+
+工具无法确认物理可行性、真实用时、语义相似度、目标或 SOP 是否落实全部输入限制，或平台是否接受文件。高相似任务和生成内容仍需人工审核。配置不包含未经实现的相似度阈值，不自动删除近似任务。
+
+## 仓库结构
 
 ```text
 embodied-task-generator/
 ├── README.md
 ├── SKILL.md
 ├── config.example.json
-├── prompts/
-│   └── variant-standardizer.txt
-├── examples/
-│   ├── input_example.csv
-│   └── output_example.csv
+├── variant-standardizer.txt
+├── input_example.csv
+├── output_example.json
+├── output_example.csv
+├── scripts/
+│   ├── validate_tasks.py
+│   └── export_tasks.py
+├── tests/
+│   ├── test_validate_tasks.py
+│   ├── test_source_validation.py
+│   └── test_export_tasks.py
+└── .github/workflows/validate.yml
 ```
 
----
-
-## Task Schema
-
-Each generated task contains the following standardized fields:
-
-| Field | Description |
-|---------|---------|
-| 任务名称 | Task title |
-| 描述 | Variant instruction |
-| 初始状态 | Initial world state |
-| 任务目标 | Completion criteria |
-| 泛化方向 | Generalization dimensions |
-| 任务类型 | Manipulation capability |
-| 灵巧度标签 | Dexterity level |
-| 环境 | Standardized environment |
-| 标准用时档位 | Estimated completion time |
-| 工具使用 | Tool usage flag |
-| 精细工具使用 | Fine-tool usage flag |
-| SOP操作说明 | Step-by-step procedure |
-| 项目 | Project identifier |
-
----
-
-## Environment Normalization
-
-Supported environment categories:
-
-```text
-home
-retail
-logistics
-factory
-office
-healthcare
-education
-hospitality
-outdoor
-construction
-transit
-sports
-service
-other
-```
-
----
-
-## Duplicate Detection
-
-The workflow supports duplicate checking by:
-
-- Exact text matching
-- Variant comparison within the same task group
-- Duplicate candidate review before export
-
-This helps reduce redundant task generation during large-scale data production.
-
----
-
-## Tech Stack
-
-- Prompt Engineering
-- LLM Workflow Design
-- JSON Schema Design
-- Data Standardization
-- Spreadsheet Processing
-- Structured Data Generation
-
----
-
-## Use Cases
-
-- Embodied AI data generation
-- Manipulation task standardization
-- Synthetic task creation workflows
-- Data annotation preparation
-- Dataset production pipelines
-- Structured task export
-
----
-
-## Disclaimer
-
-This repository contains a sanitized demonstration workflow for educational and portfolio purposes.
-
-No proprietary datasets, internal tools, customer information, platform credentials, or production assets are included.
-
----
-
-## License
-
-MIT License
+项目使用脱敏示例展示工作流，不包含公司内部平台、账号或生产数据。原 README 的 MIT 授权声明沿用；仓库目前未附独立 LICENSE 文件。

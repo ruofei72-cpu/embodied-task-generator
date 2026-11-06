@@ -1,0 +1,38 @@
+[
+  {
+    "task_name": "Restock Medicine-v01",
+    "description": "Move 2 boxes of cold medicine from the storage box to the left side of shelf A",
+    "initial_state": "The storage box contains medicine boxes; shelf A has available placement space",
+    "task_goal": [
+      "2 boxes of cold medicine are placed on the left side of shelf A",
+      "The boxes are stable and not scattered"
+    ],
+    "generalization_axes": "quantity;category;location",
+    "task_type": "Gripper,Dexterous Hand",
+    "dexterity_level": "non-dexterous",
+    "environment": "healthcare",
+    "estimated_duration": "2–5min",
+    "tool_use": false,
+    "fine_tool_use": false,
+    "sop": "1. Pick up 2 boxes of cold medicine from the storage box; 2. Place them on the left side of shelf A.",
+    "project": "embodied_ai"
+  },
+  {
+    "task_name": "Restock Medicine-v02",
+    "description": "Move 3 boxes of allergy medicine from the storage box to the right side of shelf B",
+    "initial_state": "The storage box contains medicine boxes; shelf B has available placement space",
+    "task_goal": [
+      "3 boxes of allergy medicine are placed on the right side of shelf B",
+      "The boxes are stable and not scattered"
+    ],
+    "generalization_axes": "quantity;category;location",
+    "task_type": "Gripper,Dexterous Hand",
+    "dexterity_level": "non-dexterous",
+    "environment": "healthcare",
+    "estimated_duration": "2–5min",
+    "tool_use": false,
+    "fine_tool_use": false,
+    "sop": "1. Pick up 3 boxes of allergy medicine from the storage box; 2. Place them on the right side of shelf B.",
+    "project": "embodied_ai"
+  }
+]

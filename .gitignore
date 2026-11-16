@@ -4,6 +4,10 @@
 # Python
 __pycache__/
 *.pyc
+*.egg-info/
+build/
+dist/
+.venv/
 
 # Logs
 *.log
@@ -19,3 +23,4 @@ config.json
 # IDE
 .vscode/
 .idea/
+

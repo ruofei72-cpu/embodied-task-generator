@@ -1,30 +1,173 @@
 {
-  "project_tag": "embodied_ai",
-
-  "supported_environments": [
-    "home",
-    "office",
-    "retail",
-    "healthcare",
-    "hospitality",
-    "logistics",
-    "factory",
-    "education",
-    "outdoor"
+  "schema_version": "2.0",
+  "project_tag": "public_synthetic_demo",
+  "mode": "single-axis",
+  "variants_per_task": 7,
+  "max_candidates": 10000,
+  "require_axis_coverage": true,
+  "deduplicate_across_tasks": true,
+  "example_notice": "Illustrative dimensions only; not a reconstruction of any client's seven axes or inventory.",
+  "axes": [
+    {
+      "name": "color",
+      "field": "color",
+      "values": [
+        "红色",
+        "蓝色",
+        "绿色"
+      ]
+    },
+    {
+      "name": "size",
+      "field": "size",
+      "values": [
+        "小号",
+        "大号"
+      ]
+    },
+    {
+      "name": "material",
+      "field": "material",
+      "values": [
+        "塑料",
+        "金属"
+      ]
+    },
+    {
+      "name": "source_position",
+      "field": "source",
+      "values": [
+        "左侧垫板",
+        "右侧垫板"
+      ]
+    },
+    {
+      "name": "target_position",
+      "field": "target",
+      "values": [
+        "托盘",
+        "收纳盒"
+      ]
+    },
+    {
+      "name": "orientation",
+      "field": "orientation",
+      "values": [
+        "正放",
+        "侧放"
+      ]
+    },
+    {
+      "name": "quantity",
+      "field": "quantity",
+      "values": [
+        1,
+        2,
+        3
+      ]
+    }
   ],
-
-  "default_environment": "retail",
-
-  "schema_version": "1.0",
-
-  "duplicate_detection": {
-    "enabled": true,
-    "similarity_threshold": 0.9
-  },
-
-  "export": {
-    "format": "xlsx",
-    "sheet_name": "Tasks",
-    "include_headers": true
+  "constraints": [
+    {
+      "type": "different",
+      "name": "source_and_target_differ",
+      "fields": [
+        "source",
+        "target"
+      ]
+    },
+    {
+      "type": "forbid",
+      "name": "demo_disallows_sideways_metal",
+      "when": {
+        "material": "金属",
+        "orientation": "侧放"
+      }
+    }
+  ],
+  "scenes": {
+    "kitchen_demo": {
+      "environment": "home",
+      "allowed_values": {
+        "object": [
+          "杯子"
+        ],
+        "color": [
+          "红色",
+          "蓝色",
+          "绿色"
+        ],
+        "size": [
+          "小号",
+          "大号"
+        ],
+        "material": [
+          "塑料",
+          "金属"
+        ],
+        "source": [
+          "左侧垫板",
+          "右侧垫板"
+        ],
+        "target": [
+          "托盘",
+          "收纳盒"
+        ],
+        "orientation": [
+          "正放",
+          "侧放"
+        ],
+        "quantity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "inventory": {
+        "杯子": 2
+      }
+    },
+    "workshop_demo": {
+      "environment": "factory",
+      "allowed_values": {
+        "object": [
+          "积木"
+        ],
+        "color": [
+          "红色",
+          "蓝色",
+          "绿色"
+        ],
+        "size": [
+          "小号",
+          "大号"
+        ],
+        "material": [
+          "塑料",
+          "金属"
+        ],
+        "source": [
+          "左侧垫板",
+          "右侧垫板"
+        ],
+        "target": [
+          "托盘",
+          "收纳盒"
+        ],
+        "orientation": [
+          "正放",
+          "侧放"
+        ],
+        "quantity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "inventory": {
+        "积木": 2
+      }
+    }
   }
 }
+

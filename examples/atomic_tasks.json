@@ -1,0 +1,70 @@
+[
+  {
+    "task_id": "kitchen-001",
+    "task_name": "杯子归位",
+    "scene_id": "kitchen_demo",
+    "action": "place",
+    "original_instruction": "将一个红色小号塑料杯子从左侧垫板放入托盘。",
+    "parameters": {
+      "object": "杯子",
+      "color": "红色",
+      "size": "小号",
+      "material": "塑料",
+      "source": "左侧垫板",
+      "target": "托盘",
+      "orientation": "正放",
+      "quantity": 1
+    },
+    "instruction_template": "将{quantity}个{color}{size}{material}{object}从{source}放入{target}，初始姿态为{orientation}。",
+    "initial_state_template": "{quantity}个{color}{size}{material}{object}在{source}上，姿态为{orientation}；{target}有可用空间。",
+    "goal_template": "{quantity}个{color}{size}{material}{object}已放入{target}。",
+    "reset_template": "准备{quantity}个{color}{size}{material}{object}，按{orientation}姿态放回{source}，清空目标{target}。",
+    "goal": {
+      "predicate": "inside",
+      "object": "{object}",
+      "destination": "{target}",
+      "quantity": "{quantity}"
+    },
+    "labels": {
+      "task_type": "Gripper,Dexterous Hand",
+      "dexterity_level": "non-dexterous",
+      "estimated_duration": "0.5–2min",
+      "tool_use": false,
+      "fine_tool_use": false
+    }
+  },
+  {
+    "task_id": "workshop-001",
+    "task_name": "积木收纳",
+    "scene_id": "workshop_demo",
+    "action": "place",
+    "original_instruction": "将一个红色小号塑料积木从左侧垫板放入托盘。",
+    "parameters": {
+      "object": "积木",
+      "color": "红色",
+      "size": "小号",
+      "material": "塑料",
+      "source": "左侧垫板",
+      "target": "托盘",
+      "orientation": "正放",
+      "quantity": 1
+    },
+    "instruction_template": "将{quantity}个{color}{size}{material}{object}从{source}放入{target}，初始姿态为{orientation}。",
+    "initial_state_template": "{quantity}个{color}{size}{material}{object}在{source}上，姿态为{orientation}；{target}有可用空间。",
+    "goal_template": "{quantity}个{color}{size}{material}{object}已放入{target}。",
+    "reset_template": "准备{quantity}个{color}{size}{material}{object}，按{orientation}姿态放回{source}，清空目标{target}。",
+    "goal": {
+      "predicate": "inside",
+      "object": "{object}",
+      "destination": "{target}",
+      "quantity": "{quantity}"
+    },
+    "labels": {
+      "task_type": "Gripper,Dexterous Hand",
+      "dexterity_level": "non-dexterous",
+      "estimated_duration": "0.5–2min",
+      "tool_use": false,
+      "fine_tool_use": false
+    }
+  }
+]

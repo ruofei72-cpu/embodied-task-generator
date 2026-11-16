@@ -1,247 +1,152 @@
 # Embodied Task Generator
 
-A prompt-driven workflow for transforming spreadsheet-based task variants into standardized embodied AI task schemas and platform-ready import files.
+A configurable Python tool that turns structured atomic tasks into validated task variations and spreadsheet-ready collection instructions. Core generation runs offline, without an LLM API or simulator.
 
----
+具身数据采集任务泛化工具：用配置定义变化维度，通过代码控制变体数量、组合、校验与导出。原始 Prompt 工作流保留为参考，当前版本提供可运行的规则引擎。
 
-## Overview
+## 快速运行
 
-Embodied AI data production often requires large volumes of task variants to be standardized before annotation, collection, or platform import.
+需要 Python 3.10+。在仓库根目录运行，基础功能无需安装第三方依赖：
 
-This project demonstrates a lightweight workflow that converts raw task variants from spreadsheets into structured task definitions with normalized environments, standardized labels, and import-ready outputs.
+```bash
+python -m taskgen generate --input examples/atomic_tasks.json --config config.example.json --output generated/demo
+python -m taskgen validate --input generated/demo/tasks.jsonl --config config.example.json
+```
 
-The workflow is designed to improve consistency, reduce manual effort, and support scalable embodied AI data generation.
+示例包含两条虚构原子任务，生成 14 条变体，每条任务恰好 7 条。预览 [平台导出示例](examples/expected/platform_tasks.csv) 和 [校验报告](examples/expected/report.json)。
 
----
+使用 Excel 文件作为输入或输出时，安装可选依赖：
 
-## Key Capabilities
+```bash
+python -m pip install '.[excel]'
+python -m taskgen generate --input examples/atomic_tasks.csv --config config.example.json --output generated/excel --xlsx
+```
 
-- Variant task parsing
-- Task schema standardization
-- Environment normalization
-- Label JSON generation
-- Duplicate detection support
-- Platform-ready template generation
-- Batch processing for spreadsheet inputs
+安装后也可以使用 `taskgen generate ...` 命令。支持 JSON、CSV、XLSX 原子任务输入；XLSX 读取第一个工作表，要求使用字面值而非公式。
 
----
+## 解决的问题
 
-## Workflow
+原子任务不应该只被改写成若干句不同的话。采集任务需要可控地改变物体属性、起始位置、目标位置等条件，同时满足场景物料和业务规则。
+
+本工具将以下工作分开：
+
+| 环节 | 当前实现 |
+| --- | --- |
+| 任务定义 | 保存原始指令、场景、动作、基础参数、初始状态和结构化目标 |
+| 泛化配置 | 通过 JSON 定义维度、允许取值、场景物料、库存和禁配规则 |
+| 变体生成 | 单维遍历或双维交叉；每次从基础参数重新生成 |
+| 任务校验 | 检查物料取值、数量限制、字段、布尔类型、约束、重复与维度覆盖 |
+| 数量控制 | 每条原子任务达到规定数量才整组导出；不足时记录原因 |
+| 批量导出 | JSONL 完整记录、CSV 平台模板、JSON 报告；可选 XLSX |
+| 可追溯性 | 保留原子任务 ID、变体 ID、参数、变化维度、指纹和输入/配置哈希 |
+
+这里的“重置”是生成过程中的参数状态隔离：每条候选变体重新复制基础参数，不继承上一条变体的改动。另有 `reset_instruction` 描述现场准备步骤；程序不会实际复位机器人、物体或仿真器。
+
+## 两种生成模式
+
+### 单维遍历：single-axis
+
+每条候选只修改一个维度。按维度轮转生成候选，再优先选择覆盖尚未覆盖维度的候选。
+
+```bash
+python -m taskgen generate --input examples/atomic_tasks.json --config config.example.json --mode single-axis --output generated/single
+```
+
+示例配置的七个维度是颜色、尺寸、材质、起始位置、目标位置、初始姿态、数量。这是公开演示配置，不是任何客户历史七项规则的复原。
+
+“七个维度”和“七条变体”是两个配置概念。默认配额为 7，且要求覆盖任务启用的全部维度；可以按真实需求修改配额，或在单条任务的 `axes` 中指定适用维度。
+
+### 双维交叉：cross
+
+每条候选同时修改两个维度，例如颜色与位置。先检查场景约束，再按配额选取有效候选。
+
+```bash
+python -m taskgen generate --input examples/atomic_tasks.json --config config.example.json --mode cross --output generated/cross
+```
+
+这是受限的双维组合生成，不保证覆盖所有参数对，也不进行无限笛卡尔积展开。候选检查由 `max_candidates` 限制，达到上限会写入报告。某个必需维度没有有效候选时，整组拒绝。
+
+## 输入与规则
+
+完整输入见 [JSON 示例](examples/atomic_tasks.json) 和 [CSV 示例](examples/atomic_tasks.csv)。每条任务需要：
+
+- `task_id`、`task_name`、`scene_id`、`action`、`original_instruction`。
+- `parameters`：基础物体和状态参数。
+- `goal`：结构化目标，例如物体、目标区域和数量。
+- `instruction_template`、`initial_state_template`、`goal_template`、`reset_template`：使用简单的 `{参数名}` 占位符。
+- 可选 `axes`、`variants_per_task`、`labels`。省略 labels 时使用文档化的演示默认值；实际采集前应核对任务类型、工具使用、灵巧度与用时。
+
+CSV/XLSX 中的 `parameters`、`goal`、`labels`、`axes` 使用 JSON 单元格。输入已经泛化过的旧版 `input_example.csv` 不属于新 CLI 的原子任务输入格式，保留作原始工作流参考。
+
+[配置文件](config.example.json) 包含：
+
+- `axes`：变化维度与候选取值。
+- `scenes.*.allowed_values`：该场景允许使用的物体、位置与属性。
+- `scenes.*.inventory`：每类物体可用数量。
+- `constraints`：全局约束，或场景内独立约束。
+- `different` 规则：指定字段取值必须不同。
+- `forbid` 规则：禁止特定属性组合。
+- `require_axis_coverage`：是否要求覆盖全部启用维度，默认 true。
+- `deduplicate_across_tasks`：是否在批次内跨原子任务去重，默认 true。
+
+例如，库存只有两个杯子时，数量为三的候选会被剔除。禁止“金属＋侧放”的演示约束也会过滤对应交叉组合。规则只表达已配置的限制，不代表现实中的通用物理规律。
+
+## 输出与错误处理
+
+| 文件 | 内容 |
+| --- | --- |
+| `tasks.jsonl` | 规范记录，保留基础参数、变体参数、目标、来源和指纹；用于二次校验 |
+| `platform_tasks.csv` | 任务名称、描述、目标、初始状态、变化维度、任务类型、环境和 Label 等平台列 |
+| `report.json` | 接受/拒绝数量、每组覆盖维度、候选拒绝原因、输入与配置哈希 |
+| `platform_tasks.xlsx` | 加 `--xlsx` 时生成的 Excel 视图 |
+
+Label 是有效 JSON，工具使用标记保留为真正的布尔值。表格中的危险公式前缀会转义；规范 JSONL 保留原始文本。平台列是示例适配格式，接入真实平台前仍需核对字段契约。
+
+重复依据是“场景＋动作＋参数＋结构化目标”的 SHA-256 指纹；仅修改文字措辞不会生成新的结构化任务。指纹用于内容标识，不是安全签名，也不提供通用的自然语言语义去重。
+
+退出码：
+
+- `0`：全部原子任务完整生成，或记录校验通过。
+- `1`：存在拒绝任务或记录。合法原子任务的完整组仍可导出，原因见报告；不足配额的组不会部分导出。
+- `2`：配置、文件格式或 IO 错误。
+
+输出目录内的同名生成文件会被替换；其他文件保留。
+
+## 测试与验证
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+测试覆盖单维状态隔离、双维交叉、物料/库存约束、数量不足、维度覆盖、结构化去重、字段篡改、输入错误、退出码及 CSV/JSONL 往返；安装 Excel extra 后也测试 XLSX 输入、输出与公式拒绝。
+
+另有“8 个演示场景 × 每场景 21 条合成原子任务 × 7 条变体”的批量正确性测试，预期 1,176 条。它是合成测试夹具，不是客户采集数据、历史产量或性能基准。
+
+## 能力边界与项目演进
+
+- 本版本从已结构化的原子任务生成变体，不自动理解任意自然语言，也不调用 LLM API。可以由人工或上游模型提供结构化输入；进入生成器后仍执行相同的规则校验。
+- 物理可执行性、目标语义和最终采集适用性需要人工或仿真复核，所有输出保留 `requires_human_review=true`。
+- 当前未集成机器人控制、仿真、运动规划或真实采集平台 API。
+- 早期 Prompt、`SKILL.md` 和根目录 CSV 保留为参考。当前 Python 引擎是 2026 年 11 月的后续工程化扩展，不应被描述为早期实习期间已部署的功能。
+- 全部示例是公开构造的数据，不含客户名单、内部平台、真实任务库或业务凭据。
+
+## 目录与设计参考
 
 ```text
-Spreadsheet Task Variants
-            │
-            ▼
-Variant Parsing
-            │
-            ▼
-Task Standardization Prompt
-            │
-            ▼
-Structured Task Schema
-            │
-            ▼
-Environment Mapping
-            │
-            ▼
-Label Generation
-            │
-            ▼
-Duplicate Check
-            │
-            ▼
-Platform Import Template
-            │
-            ▼
-Upload-ready Excel / JSON
+taskgen/                 生成引擎、格式适配与 CLI
+config.example.json      可运行的演示规则
+examples/atomic_tasks.*  同一组 JSON / CSV 原子任务
+examples/expected/       可复现的演示输出
+tests/                   单元与 CLI 测试
+docs/design.md           设计决策与验证边界
+docs/references.md       参考项目及借鉴范围
+SKILL.md                 原始 Prompt 工作流参考
+variant-standardizer.txt 原始标准化 Prompt
 ```
 
----
-
-## Architecture
-
-```text
-┌─────────────────────┐
-│ Raw Task Variants   │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│ Variant Parser      │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│ Standardization     │
-│ Prompt              │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│ Schema Generator    │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│ Environment Mapper  │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│ Label Generator     │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│ Duplicate Checker   │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│ Platform Exporter   │
-└─────────────────────┘
-```
-
----
-
-## Example Input
-
-| Task Name | Variant |
-|------------|------------|
-| Restock Medicine | Move two medicine boxes from storage to shelf A |
-| Restock Medicine | Move three medicine boxes from storage to shelf B |
-
-Example spreadsheet:
-
-```csv
-Task ID,Task Name,Variant
-t1,Restock Medicine,Move two medicine boxes from storage to shelf A
-t1,Restock Medicine,Move three medicine boxes from storage to shelf B
-```
-
----
-
-## Example Output
-
-```json
-{
-  "任务名称": "补充药品-v01",
-  "描述": "从储药箱中取出2盒药品摆放至指定货架",
-  "环境": "healthcare",
-  "任务类型": "Gripper,Dexterous Hand",
-  "标签": {
-    "工具使用": false,
-    "标准用时": "≤4min",
-    "灵巧度等级": "非灵巧"
-  }
-}
-```
-
----
-
-## Repository Structure
-
-```text
-embodied-task-generator/
-├── README.md
-├── SKILL.md
-├── config.example.json
-├── prompts/
-│   └── variant-standardizer.txt
-├── examples/
-│   ├── input_example.csv
-│   └── output_example.csv
-```
-
----
-
-## Task Schema
-
-Each generated task contains the following standardized fields:
-
-| Field | Description |
-|---------|---------|
-| 任务名称 | Task title |
-| 描述 | Variant instruction |
-| 初始状态 | Initial world state |
-| 任务目标 | Completion criteria |
-| 泛化方向 | Generalization dimensions |
-| 任务类型 | Manipulation capability |
-| 灵巧度标签 | Dexterity level |
-| 环境 | Standardized environment |
-| 标准用时档位 | Estimated completion time |
-| 工具使用 | Tool usage flag |
-| 精细工具使用 | Fine-tool usage flag |
-| SOP操作说明 | Step-by-step procedure |
-| 项目 | Project identifier |
-
----
-
-## Environment Normalization
-
-Supported environment categories:
-
-```text
-home
-retail
-logistics
-factory
-office
-healthcare
-education
-hospitality
-outdoor
-construction
-transit
-sports
-service
-other
-```
-
----
-
-## Duplicate Detection
-
-The workflow supports duplicate checking by:
-
-- Exact text matching
-- Variant comparison within the same task group
-- Duplicate candidate review before export
-
-This helps reduce redundant task generation during large-scale data production.
-
----
-
-## Tech Stack
-
-- Prompt Engineering
-- LLM Workflow Design
-- JSON Schema Design
-- Data Standardization
-- Spreadsheet Processing
-- Structured Data Generation
-
----
-
-## Use Cases
-
-- Embodied AI data generation
-- Manipulation task standardization
-- Synthetic task creation workflows
-- Data annotation preparation
-- Dataset production pipelines
-- Structured task export
-
----
-
-## Disclaimer
-
-This repository contains a sanitized demonstration workflow for educational and portfolio purposes.
-
-No proprietary datasets, internal tools, customer information, platform credentials, or production assets are included.
-
----
+参考了 RLBench 的任务变体与实例区分、LIBERO 的结构化任务生成、BEHAVIOR 的初始状态与目标条件建模；当前实现为独立编写的轻量规则工具，不依赖这些仿真框架。[参考说明](docs/references.md)
 
 ## License
 
-MIT License
+MIT. See [LICENSE](LICENSE).
+

@@ -1,0 +1,70 @@
+{
+  "schema_version": "2.0",
+  "generator_version": "0.2.0",
+  "status": "complete",
+  "summary": {
+    "input_tasks": 2,
+    "accepted_tasks": 2,
+    "rejected_tasks": 0,
+    "generated_variants": 14
+  },
+  "config_sha256": "db104f4a3a575b525345328e66d956712d3ab56ee2c6ff001eebb583a616eb71",
+  "input_sha256": "4629ec34fc664f5e872abb454e4a7d9d9f86ada572a44113e608cee1104f50d8",
+  "tasks": [
+    {
+      "row": 1,
+      "task_id": "kitchen-001",
+      "status": "accepted",
+      "generated_variants": 7,
+      "errors": [],
+      "scene_id": "kitchen_demo",
+      "requested_variants": 7,
+      "candidates_checked": 9,
+      "candidate_limit_reached": false,
+      "valid_candidates": 8,
+      "rejected_candidates": {
+        "insufficient_inventory": 1
+      },
+      "covered_axes": [
+        "color",
+        "material",
+        "orientation",
+        "quantity",
+        "size",
+        "source_position",
+        "target_position"
+      ],
+      "missing_axes": []
+    },
+    {
+      "row": 2,
+      "task_id": "workshop-001",
+      "status": "accepted",
+      "generated_variants": 7,
+      "errors": [],
+      "scene_id": "workshop_demo",
+      "requested_variants": 7,
+      "candidates_checked": 9,
+      "candidate_limit_reached": false,
+      "valid_candidates": 8,
+      "rejected_candidates": {
+        "insufficient_inventory": 1
+      },
+      "covered_axes": [
+        "color",
+        "material",
+        "orientation",
+        "quantity",
+        "size",
+        "source_position",
+        "target_position"
+      ],
+      "missing_axes": []
+    }
+  ],
+  "limitations": [
+    "No physical or simulator feasibility validation.",
+    "Reset instructions describe intended setup; no hardware or simulator is controlled.",
+    "Structured duplicates are checked; free-text semantic equivalence is not guaranteed."
+  ]
+}

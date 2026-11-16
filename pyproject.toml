@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "embodied-task-generator"
+version = "0.2.0"
+description = "Configurable, validated task-variation generation for embodied data collection"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = []
+
+[project.optional-dependencies]
+excel = ["openpyxl>=3.1,<4"]
+
+[project.scripts]
+taskgen = "taskgen.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["taskgen*"]

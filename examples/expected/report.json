@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "generator_version": "0.2.0",
+  "generator_version": "0.3.0",
   "status": "complete",
   "summary": {
     "input_tasks": 2,
@@ -62,6 +62,84 @@
       "missing_axes": []
     }
   ],
+  "coverage": {
+    "axes": {
+      "color": {
+        "configured_values": [
+          "红色",
+          "蓝色",
+          "绿色"
+        ],
+        "changed_values_observed": [
+          "蓝色"
+        ],
+        "changed_variant_count": 2
+      },
+      "size": {
+        "configured_values": [
+          "小号",
+          "大号"
+        ],
+        "changed_values_observed": [
+          "大号"
+        ],
+        "changed_variant_count": 2
+      },
+      "material": {
+        "configured_values": [
+          "塑料",
+          "金属"
+        ],
+        "changed_values_observed": [
+          "金属"
+        ],
+        "changed_variant_count": 2
+      },
+      "source_position": {
+        "configured_values": [
+          "左侧垫板",
+          "右侧垫板"
+        ],
+        "changed_values_observed": [
+          "右侧垫板"
+        ],
+        "changed_variant_count": 2
+      },
+      "target_position": {
+        "configured_values": [
+          "托盘",
+          "收纳盒"
+        ],
+        "changed_values_observed": [
+          "收纳盒"
+        ],
+        "changed_variant_count": 2
+      },
+      "orientation": {
+        "configured_values": [
+          "正放",
+          "侧放"
+        ],
+        "changed_values_observed": [
+          "侧放"
+        ],
+        "changed_variant_count": 2
+      },
+      "quantity": {
+        "configured_values": [
+          1,
+          2,
+          3
+        ],
+        "changed_values_observed": [
+          2
+        ],
+        "changed_variant_count": 2
+      }
+    },
+    "observed_axis_pairs": {},
+    "note": "Observed values and pairs only; not exhaustive feasible-space or physical-success coverage."
+  },
   "limitations": [
     "No physical or simulator feasibility validation.",
     "Reset instructions describe intended setup; no hardware or simulator is controlled.",

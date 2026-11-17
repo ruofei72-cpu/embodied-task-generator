@@ -1,0 +1,49 @@
+{
+  "mapping_version": "1.0",
+  "columns": {
+    "scene_id": "场景",
+    "task_id": "原子任务编号",
+    "task_name": "任务名称",
+    "original_instruction": "原始指令",
+    "template_id": "任务模板"
+  },
+  "parameters": {
+    "object": "物体",
+    "color": "颜色",
+    "size": "尺寸",
+    "material": "材质",
+    "source": "起始位置",
+    "target": "目标位置",
+    "orientation": "初始姿态",
+    "quantity": "数量"
+  },
+  "integer_parameters": [
+    "quantity"
+  ],
+  "scene_aliases": {
+    "厨房": "kitchen_demo",
+    "车间": "workshop_demo"
+  },
+  "templates": {
+    "place": {
+      "action": "place",
+      "instruction_template": "将{quantity}个{color}{size}{material}{object}从{source}放入{target}，初始姿态为{orientation}。",
+      "initial_state_template": "{quantity}个{color}{size}{material}{object}在{source}上，姿态为{orientation}；{target}有可用空间。",
+      "goal_template": "{quantity}个{color}{size}{material}{object}已放入{target}。",
+      "reset_template": "准备{quantity}个{color}{size}{material}{object}，按{orientation}姿态放回{source}，清空目标{target}。",
+      "goal": {
+        "predicate": "inside",
+        "object": "{object}",
+        "destination": "{target}",
+        "quantity": "{quantity}"
+      },
+      "labels": {
+        "task_type": "Gripper,Dexterous Hand",
+        "dexterity_level": "non-dexterous",
+        "estimated_duration": "0.5–2min",
+        "tool_use": false,
+        "fine_tool_use": false
+      }
+    }
+  }
+}

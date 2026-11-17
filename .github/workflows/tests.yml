@@ -32,3 +32,9 @@ jobs:
           taskgen validate --input generated/cross/tasks.jsonl --config config.example.json
           taskgen generate --input examples/atomic_tasks.csv --config config.example.json --output generated/csv
           diff generated/ci/tasks.jsonl generated/csv/tasks.jsonl
+      - name: Map customer sheet and create pending review
+        run: |
+          taskgen import-sheet --input examples/customer_tasks.csv --mapping examples/customer_mapping.json --config config.example.json --output generated/import
+          taskgen generate --input generated/import/imported_tasks.json --config config.example.json --output generated/customer
+          diff generated/ci/tasks.jsonl generated/customer/tasks.jsonl
+          taskgen create-review --input generated/customer/tasks.jsonl --config config.example.json --output generated/review.xlsx

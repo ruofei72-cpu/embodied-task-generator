@@ -291,6 +291,22 @@ def select_candidates(pool, quota, required_axes):
     return selected, sorted(uncovered)
 
 
+def coverage_summary(records, config):
+    """Report observed changes, not an unproven percentage of feasible task space."""
+    axes, pairs = {}, Counter()
+    for axis in config["axes"]:
+        changed = [r for r in records if axis["name"] in r["changed_axes"]]
+        values = sorted({canonical(r["parameters"][axis["field"]]) for r in changed})
+        axes[axis["name"]] = {"configured_values": axis["values"],
+                              "changed_values_observed": [json.loads(v) for v in values],
+                              "changed_variant_count": len(changed)}
+    for record in records:
+        if len(record["changed_axes"]) == 2:
+            pairs[" + ".join(sorted(record["changed_axes"]))] += 1
+    return {"axes": axes, "observed_axis_pairs": dict(pairs),
+            "note": "Observed values and pairs only; not exhaustive feasible-space or physical-success coverage."}
+
+
 def generate_tasks(tasks, raw_config):
     config = validate_config(raw_config)
     require(isinstance(tasks, list), "Input must be a list of atomic tasks")
@@ -366,13 +382,14 @@ def generate_tasks(tasks, raw_config):
             report["errors"].append(str(exc))
     accepted = sum(t["status"] == "accepted" for t in task_reports)
     report = {
-        "schema_version": "2.0", "generator_version": "0.2.0",
+        "schema_version": "2.0", "generator_version": "0.3.0",
         "status": "complete" if accepted == len(tasks) else ("partial" if accepted else "failed"),
         "summary": {"input_tasks": len(tasks), "accepted_tasks": accepted,
                     "rejected_tasks": len(tasks) - accepted, "generated_variants": len(records)},
         "config_sha256": sha256(canonical(config).encode("utf-8")).hexdigest(),
         "input_sha256": sha256(input_json.encode("utf-8")).hexdigest(),
         "tasks": task_reports,
+        "coverage": coverage_summary(records, config),
         "limitations": ["No physical or simulator feasibility validation.",
                         "Reset instructions describe intended setup; no hardware or simulator is controlled.",
                         "Structured duplicates are checked; free-text semantic equivalence is not guaranteed."],

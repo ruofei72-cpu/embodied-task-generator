@@ -86,24 +86,35 @@ def load_tasks(path):
         if not isinstance(data, list):
             raise TaskgenError("Input JSON must be a list or an object with a tasks list")
         return data
-    if suffix == ".csv":
+    if suffix in (".csv", ".xlsx"):
+        return decode_rows(read_table(path))
+    raise TaskgenError("Atomic task input must be .json, .csv or .xlsx")
+
+
+def read_table(path):
+    """Read plain cells without interpreting JSON columns or client wording."""
+    path = Path(path)
+    if path.suffix.lower() == ".csv":
         with path.open(encoding="utf-8-sig", newline="") as stream:
             reader = csv.DictReader(stream)
             names = [n.strip() for n in (reader.fieldnames or [])]
             if not names or not all(names) or len(names) != len(set(names)):
                 raise TaskgenError("CSV needs unique column headers")
             reader.fieldnames = names
-            return decode_rows(reader)
-    if suffix == ".xlsx":
+            rows = list(reader)
+            if any(None in row for row in rows):
+                raise TaskgenError("Extra CSV cells; quote cells containing commas")
+            return rows
+    if path.suffix.lower() == ".xlsx":
         library = excel_library()
         workbook = library.load_workbook(path, read_only=True, data_only=False)
         try:
-            sheet = workbook.active
+            sheet = workbook.worksheets[0]
             rows = iter(sheet.iter_rows())
             header = next(rows, ())
             if not header or any(cell.data_type == "f" for cell in header):
                 raise TaskgenError("Excel needs plain-text column headers")
-            names = [cell.value for cell in header]
+            names = [cell.value.strip() if isinstance(cell.value, str) else cell.value for cell in header]
             if any(not isinstance(n, str) or not n.strip() for n in names) or len(set(names)) != len(names):
                 raise TaskgenError("Excel headers must be nonempty, unique strings")
             values = []
@@ -111,10 +122,53 @@ def load_tasks(path):
                 if any(cell.data_type == "f" for cell in row):
                     raise TaskgenError("Excel formulas are not evaluated; provide literal cell values")
                 values.append(dict(zip(names, [cell.value for cell in row])))
-            return decode_rows(values)
+            return values
         finally:
             workbook.close()
-    raise TaskgenError("Atomic task input must be .json, .csv or .xlsx")
+    raise TaskgenError("Table must be .csv or .xlsx")
+
+
+def write_table(rows, columns, path):
+    """Write a human-facing table; write to a temporary file before replacement."""
+    path = Path(path)
+    if path.suffix.lower() not in (".csv", ".xlsx"):
+        raise TaskgenError("Table output must be .csv or .xlsx")
+    library = excel_library() if path.suffix.lower() == ".xlsx" else None
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(prefix=".taskgen-", dir=path.parent) as folder:
+        temporary = Path(folder) / path.name
+        if library is None:
+            with temporary.open("w", encoding="utf-8-sig", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=columns, lineterminator="\n")
+                writer.writeheader()
+                writer.writerows({c: spreadsheet_safe(row.get(c, "")) for c in columns} for row in rows)
+        else:
+            from openpyxl.worksheet.datavalidation import DataValidation
+            workbook = library.Workbook()
+            sheet = workbook.active
+            sheet.title = "Tasks"
+            sheet.append(columns)
+            for row in rows:
+                sheet.append([spreadsheet_safe(row.get(c, "")) for c in columns])
+            sheet.freeze_panes = "A2"
+            sheet.auto_filter.ref = sheet.dimensions
+            for index, column in enumerate(columns, start=1):
+                letter = sheet.cell(1, index).column_letter
+                sheet.column_dimensions[letter].width = 52 if column in ("任务指令", "初始状态", "目标状态", "现场准备", "修改意见") else 22
+                if column in ("指纹", "批次标识"):
+                    sheet.column_dimensions[letter].hidden = True
+            if "审核结论" in columns and rows:
+                column = sheet.cell(1, columns.index("审核结论") + 1).column_letter
+                validation = DataValidation(type="list", formula1='"待审核,通过,退回"', allow_blank=False)
+                validation.errorTitle = "请选择审核结论"
+                validation.error = "待审核、通过或退回"
+                validation.showErrorMessage = True
+                validation.errorStyle = "stop"
+                sheet.add_data_validation(validation)
+                validation.add(f"{column}2:{column}{len(rows) + 1}")
+            workbook.save(temporary)
+            workbook.close()
+        os.replace(temporary, path)
 
 
 def load_variants(path):

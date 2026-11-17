@@ -91,7 +91,25 @@ CSV/XLSX 中的 `parameters`、`goal`、`labels`、`axes` 使用 JSON 单元格�
 
 例如，库存只有两个杯子时，数量为三的候选会被剔除。禁止“金属＋侧放”的演示约束也会过滤对应交叉组合。规则只表达已配置的限制，不代表现实中的通用物理规律。
 
-## 输出与错误处理
+## 客户表格、人工审核与交付
+
+v0.3 增加普通中文列名的 CSV/XLSX 适配，无需客户在单元格中填写 JSON。通过[字段映射配置](examples/customer_mapping.json)指定列名、场景别名、任务模板与参数类型，参考[客户表格示例](examples/customer_tasks.csv)。映射仍需人工确认：只有一列自然语言指令的表格不能直接推断出全部任务条件。
+
+```bash
+python -m taskgen import-sheet --input examples/customer_tasks.csv --mapping examples/customer_mapping.json --config config.example.json --output generated/import
+python -m taskgen generate --input generated/import/imported_tasks.json --config config.example.json --output generated/customer
+python -m taskgen create-review --input generated/customer/tasks.jsonl --config config.example.json --output generated/review.xlsx
+# 人工在审核表中选择“通过”或“退回”，退回时填写修改意见。
+python -m taskgen finalize --input generated/customer/tasks.jsonl --review generated/review.xlsx --config config.example.json --output generated/delivery --xlsx
+```
+
+- 缺失参数、未知模板等记录进入 `incomplete_rows.csv`；`import_report.json` 保留源行号、文件与映射哈希，合法行可继续处理。
+- 审核表默认全部“待审核”，XLSX 提供状态下拉框。每组原子任务的全部变体通过后才进入交付文件；遗漏、待审核或退回会暂缓整组，`finalize` 返回 1。
+- 审核表绑定规范记录的批次及内容指纹。直接改动任务描述、混入旧批次或重复变体会被拒绝；修改任务应回到源数据重新生成，再审核。
+- 输出 `delivery.csv`、可选 `delivery.xlsx`、`delivery_report.json` 和 `review_audit.json`，保留逐条审核结果。哈希用于一致性核对，不证明审核者身份；当前是本地单文件流程，不包含多人权限或真实平台上传。
+- 生成报告新增各维度已观察取值、变体数量与双维组合计数，便于检查生成分布。它不代表全部可行组合的覆盖率或真实采集成功率。
+
+## 生成文件与错误处理
 
 | 文件 | 内容 |
 | --- | --- |
@@ -118,7 +136,7 @@ Label 是有效 JSON，工具使用标记保留为真正的布尔值。表格中
 python -m unittest discover -s tests -v
 ```
 
-测试覆盖单维状态隔离、双维交叉、物料/库存约束、数量不足、维度覆盖、结构化去重、字段篡改、输入错误、退出码及 CSV/JSONL 往返；安装 Excel extra 后也测试 XLSX 输入、输出与公式拒绝。
+测试覆盖单维状态隔离、双维交叉、物料/库存约束、数量不足、维度覆盖、结构化去重、字段篡改、客户字段映射、缺失参数、批次绑定审核、整组交付、退出码及 CSV/JSONL 往返；安装 Excel extra 后也测试 XLSX 输入、输出、审核下拉框与公式拒绝。
 
 另有“8 个演示场景 × 每场景 21 条合成原子任务 × 7 条变体”的批量正确性测试，预期 1,176 条。它是合成测试夹具，不是客户采集数据、历史产量或性能基准。
 
@@ -136,6 +154,7 @@ python -m unittest discover -s tests -v
 taskgen/                 生成引擎、格式适配与 CLI
 config.example.json      可运行的演示规则
 examples/atomic_tasks.*  同一组 JSON / CSV 原子任务
+examples/customer_*      普通客户表格与显式字段映射
 examples/expected/       可复现的演示输出
 tests/                   单元与 CLI 测试
 docs/design.md           设计决策与验证边界
